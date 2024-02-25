@@ -9,7 +9,6 @@ from prophet.plot import plot_cross_validation_metric
 import os
 import math
 
-
 # this makes it so that the outputs of the predict methods have the id as a column 
 # instead of as the index
 os.environ['NIXTLA_ID_AS_COL'] = '1'
@@ -27,7 +26,7 @@ def evaluate_cross_validation(df, metric):
     return evals
 
 # Output file to append the results
-output_file_path = 'models_kpi_cpu_dataset_rnd.csv'
+output_file_path = 'models_kpi_cpu_dataset_rnd_one_month.csv'
 
 # Load the dataset
 file_path = 'unique_dataset_rnd.csv'
@@ -48,7 +47,7 @@ cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_ti
 
 cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp.reset_index()
 
-cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp.sort_values(by='ds').groupby('unique_id').tail(7 * 24)
+cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp.sort_values(by='ds').groupby('unique_id')
 
 from statsforecast.models import (
     AutoARIMA,
@@ -81,17 +80,31 @@ sf = StatsForecast(
     n_jobs=-1,
 )
 
-crossvaldation_df = sf.cross_validation(
-    df=cpu_usage_dataset_with_corrected_timestamp,
-    h=24,
-    step_size=48,
-    n_windows=1
-)
+# Placeholder list to hold cross-validation results for each group
+cross_validation_results = []
+
+# Iterate through each group in the grouped DataFrame
+for unique_id, group_df in cpu_usage_dataset_with_corrected_timestamp:
+    # Apply cross_validation to each group's DataFrame
+    cv_result = sf.cross_validation(
+        df=group_df,
+        h=730,
+        step_size=48,
+        n_windows=1
+    )
+    # Add the group's unique_id to the results for identification
+    cv_result['unique_id'] = unique_id
+    # Append the result to the list
+    cross_validation_results.append(cv_result)
+
+# Optionally, concatenate all individual group results into a single DataFrame
+final_cross_validation_df = pd.concat(cross_validation_results)
+
+final_cross_validation_df.to_csv('statsforecast_models_kpi_cpu_dataset_rnd_one_month.csv', index=True)
 
 
-grouped = cpu_usage_dataset_with_corrected_timestamp.sort_values(by='ds').groupby('unique_id')
 
-for unique_id, group_df in grouped:
+for unique_id, group_df in cpu_usage_dataset_with_corrected_timestamp:
     # Initialize and fit the Prophet model
     model = Prophet()
     model.fit(group_df)
@@ -108,7 +121,7 @@ for unique_id, group_df in grouped:
     total_days = daily_fraction.sum()
     total_days_rounded_down = math.floor(total_days * 10) / 10
 
-    horizon = 1
+    horizon = 30
     initial = total_days_rounded_down - horizon - 1
     prophet_horizon = str(horizon) + ' days'
     prophet_initial = str(initial) + ' days'
@@ -119,30 +132,29 @@ for unique_id, group_df in grouped:
     except Exception as e:
         print(f"An error occurred during cross-validation foe {unique_id}: {e}")
         continue
-
     df_cv = df_cv.sort_values(by='ds')
     df_cv['unique_id'] = unique_id
     df_new = df_cv[['ds', 'unique_id', 'yhat']].rename(columns={'yhat': 'prophet'})
     print(df_cv)
-    # If 'prophet' already exists in crossvaldation_df, prepare to merge and resolve the column values
-    if 'prophet' in crossvaldation_df.columns:
-        # Temporarily rename 'prophet' in crossvaldation_df to avoid automatic suffixing
-        crossvaldation_df.rename(columns={'prophet': 'prophet_temp'}, inplace=True)
+    # If 'prophet' already exists in final_cross_validation_df, prepare to merge and resolve the column values
+    if 'prophet' in final_cross_validation_df.columns:
+        # Temporarily rename 'prophet' in final_cross_validation_df to avoid automatic suffixing
+        final_cross_validation_df.rename(columns={'prophet': 'prophet_temp'}, inplace=True)
 
         # Merge df1 and df_new
-        crossvaldation_df = pd.merge(crossvaldation_df, df_new, on=['ds','unique_id'], how='left')
+        final_cross_validation_df = pd.merge(final_cross_validation_df, df_new, on=['ds','unique_id'], how='left')
 
         # Update 'prophet_temp' with 'prophet' from df_new where available
-        crossvaldation_df['prophet'] = crossvaldation_df['prophet'].combine_first(crossvaldation_df['prophet_temp'])
+        final_cross_validation_df['prophet'] = final_cross_validation_df['prophet'].combine_first(final_cross_validation_df['prophet_temp'])
 
         # Drop the temporary and '_new' columns
-        crossvaldation_df.drop(columns=['prophet_temp'], inplace=True)
+        final_cross_validation_df.drop(columns=['prophet_temp'], inplace=True)
     else:
         # If 'prophet' does not exist yet, simply merge
-        crossvaldation_df = pd.merge(crossvaldation_df, df_new, on=['ds','unique_id'], how='left')
+        final_cross_validation_df  = pd.merge(final_cross_validation_df, df_new, on=['ds','unique_id'], how='left')
     
 
-evaluation_df = evaluate_cross_validation(crossvaldation_df, mse)
+evaluation_df = evaluate_cross_validation(final_cross_validation_df, mse)
 
 evaluation_df.to_csv(output_file_path, index=True)
 

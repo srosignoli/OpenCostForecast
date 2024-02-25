@@ -34,10 +34,6 @@ def concatenate_and_process_files(file_paths, output_file_path):
                 full_path = os.path.join(dir_path, filename)
                 # Load the CSV file
                 df = pd.read_csv(full_path, sep=';\t', engine='python')
-                # Example timestamp calculation
-                start_date = "2013-08-01 00:00:00"
-                start_timestamp = pd.to_datetime(start_date)
-                df['timestamp'] = [start_timestamp + pd.Timedelta(minutes=5*i) for i in range(len(df))]
                 # Create 'unique_id' column, extracting filename without '.csv' and appending '_CPU'
                 unique_id = filename[:-4] + '_CPU'
                 df['unique_id'] = unique_id
@@ -46,6 +42,8 @@ def concatenate_and_process_files(file_paths, output_file_path):
 
     # Concatenate all DataFrames into a single DataFrame
     final_data = pd.concat(all_dataframes, ignore_index=True)
+    # Convert from second to datetime tiemstamp
+    final_data['timestamp'] = pd.to_datetime(final_data['Timestamp [ms]'], unit='s')
     # Save the final DataFrame to CSV
     final_data.to_csv(output_file_path, index=False)
     

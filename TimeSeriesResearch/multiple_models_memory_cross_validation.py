@@ -27,7 +27,7 @@ def evaluate_cross_validation(df, metric):
     return evals
 
 # Output file to append the results
-output_file_path = 'models_kpi_cpu_dataset_rnd.csv'
+output_file_path = 'models_kpi_memory_dataset_rnd.csv'
 
 # Load the dataset
 file_path = 'unique_dataset_rnd.csv'
@@ -36,19 +36,20 @@ data = pd.read_csv(file_path, parse_dates=True)
 
 
 # Creating the two univariate datasets with the corrected timestamp
-cpu_usage_dataset_with_corrected_timestamp = data[['timestamp', 'CPU usage [%]', 'unique_id']].copy()
-cpu_usage_dataset_with_corrected_timestamp  = cpu_usage_dataset_with_corrected_timestamp.rename(columns={'CPU usage [%]': 'y', 'timestamp': 'ds'})
+memory_usage_dataset_with_corrected_timestamp = data[['timestamp', 'Memory usage [KB]', 'unique_id']].copy()
+memory_usage_dataset_with_corrected_timestamp  = memory_usage_dataset_with_corrected_timestamp.rename(columns={'Memory usage [KB]': 'y', 'timestamp': 'ds'})
 
 
 #Resample to hours
-cpu_usage_dataset_with_corrected_timestamp['ds'] = pd.to_datetime(cpu_usage_dataset_with_corrected_timestamp['ds'])
-cpu_usage_dataset_with_corrected_timestamp.set_index('ds', inplace=True)
-cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp.groupby('unique_id').resample('H').mean()
-cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp.fillna(0)  # Fills NaN with 0
+memory_usage_dataset_with_corrected_timestamp['ds'] = pd.to_datetime(memory_usage_dataset_with_corrected_timestamp['ds'])
+memory_usage_dataset_with_corrected_timestamp.set_index('ds', inplace=True)
+memory_usage_dataset_with_corrected_timestamp = memory_usage_dataset_with_corrected_timestamp.groupby('unique_id').resample('H').mean()
+memory_usage_dataset_with_corrected_timestamp = memory_usage_dataset_with_corrected_timestamp.fillna(0)  # Fills NaN with 0
 
-cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp.reset_index()
 
-cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp.sort_values(by='ds').groupby('unique_id').tail(7 * 24)
+memory_usage_dataset_with_corrected_timestamp = memory_usage_dataset_with_corrected_timestamp.reset_index()
+
+memory_usage_dataset_with_corrected_timestamp = memory_usage_dataset_with_corrected_timestamp.sort_values(by='ds').groupby('unique_id').tail(7 * 24)
 
 from statsforecast.models import (
     AutoARIMA,
@@ -82,14 +83,14 @@ sf = StatsForecast(
 )
 
 crossvaldation_df = sf.cross_validation(
-    df=cpu_usage_dataset_with_corrected_timestamp,
+    df=memory_usage_dataset_with_corrected_timestamp,
     h=24,
     step_size=48,
     n_windows=1
 )
 
 
-grouped = cpu_usage_dataset_with_corrected_timestamp.sort_values(by='ds').groupby('unique_id')
+grouped = memory_usage_dataset_with_corrected_timestamp.groupby('unique_id')
 
 for unique_id, group_df in grouped:
     # Initialize and fit the Prophet model

@@ -23,7 +23,7 @@ instanceid="$1"
 instanceid2="$2"
 
 # Specify the directory where your .tar.gz files are located
-directory="Dataset/data/MSMetrics"
+directory="/media/simone/TOSHIBA EXT/Dataset/data/MSMetrics"
 
 # Loop through each sorted .tar.gz file in the directory
 sorted_files=$(find "$directory" -type f -printf "%f\n" | sort -t_ -k2,2n)

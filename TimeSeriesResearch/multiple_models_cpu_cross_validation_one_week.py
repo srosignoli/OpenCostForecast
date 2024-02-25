@@ -47,7 +47,7 @@ cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_ti
 
 cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp.reset_index()
 
-cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp .groupby('unique_id').tail(30 * 24)
+cpu_usage_dataset_with_corrected_timestamp = cpu_usage_dataset_with_corrected_timestamp.sort_values(by='ds').groupby('unique_id').tail(30 * 24)
 
 from statsforecast.models import (
     AutoARIMA,
@@ -88,7 +88,7 @@ crossvaldation_df = sf.cross_validation(
 )
 
 
-grouped = cpu_usage_dataset_with_corrected_timestamp.sort_values(by='timestamp').groupby('unique_id')
+grouped = cpu_usage_dataset_with_corrected_timestamp.sort_values(by='ds').groupby('unique_id')
 
 
 
