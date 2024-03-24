@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-test-1
+  namespace: stress-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stress-test-1
+  template:
+    metadata:
+      labels:
+        app: stress-test-1
+    spec:
+      containers:
+      - name: stress-test-1
+        image: ubuntu:latest
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            apt-get update && apt-get install -y stress-ng && 
+            while true; do
+              echo "Starting CPU stress test..."
+              stress-ng --cpu 1 --cpu-load 15 --timeout 180s
+              echo "CPU stress test complete. Sleeping for 1 minute..."
+              sleep 10
+              
+              echo "Starting VM stress test..."
+              stress-ng --vm 1 --vm-bytes 256M --timeout 120s
+              echo "VM stress test complete. Sleeping for 1 minute..."
+              sleep 60
+            done
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "50m"
+

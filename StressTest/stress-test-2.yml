@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-test-2
+  namespace: stress-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stress-test-2
+  template:
+    metadata:
+      labels:
+        app: stress-test-2
+    spec:
+      containers:
+      - name: stress-test-2
+        image: ubuntu:latest
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            apt-get update && apt-get install -y stress-ng && 
+            while true; do
+              # Generate a random CPU load between 15 and 40
+              cpu_load=$((RANDOM % 26 + 15))  # % 26 scales $RANDOM to 0-25, + 15 adjusts the range to 15-40
+              # Generate a random timeout between 180 and 600 seconds
+              timeout=$((RANDOM % 421 + 180))  # % 421 scales $RANDOM to 0-420, + 180 adjusts the range to 180-600
+
+              # Run stress-ng with the random CPU load and timeout for the CPU test
+              echo "Starting CPU stress test with $cpu_load% load for $timeout seconds..."
+              stress-ng --cpu 1 --cpu-load $cpu_load --timeout ${timeout}s
+              echo "CPU stress test complete. Sleeping for 1 minute..."
+              sleep 60
+
+              # Generate a new random timeout for the VM test
+              timeout=$((RANDOM % 421 + 180))  # Reuse the logic for a new random timeout
+
+              # Generate a random vm-bytes value between 128M and 350M
+              vm_bytes=$((RANDOM % 223 + 128))M  # % 223 scales $RANDOM to 0-222, + 128 adjusts the range to 128-350, and M specifies Megabytes
+
+              # Run stress-ng with the randomized VM test configuration
+              echo "Starting VM stress test with $vm_bytes for $timeout seconds..."
+              stress-ng --vm 1 --vm-bytes $vm_bytes --vm-hang 0 --timeout ${timeout}s
+              echo "VM stress test complete. Sleeping for 1 minute..."
+              sleep 60
+            done
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "50m"
+
