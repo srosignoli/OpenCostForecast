@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-test-3
+  namespace: stress-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stress-test-3
+  template:
+    metadata:
+      labels:
+        app: stress-test-3
+    spec:
+      containers:
+      - name: stress-test-3
+        image: ubuntu:latest
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            apt-get update && apt-get install -y stress-ng && 
+            while true; do
+              echo "Starting Memory-bound Workload stress test..."
+              stress-ng --vm 1 --vm-bytes 256M --vm-method all --timeout 60s
+              echo "Memory-bound Workload stress test complete. Sleeping for 1 minute..."
+              sleep 1800
+            done
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "50m"
+

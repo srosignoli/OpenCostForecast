@@ -12,6 +12,7 @@ import requests
 import pandas as pd
 import os
 import math
+import sqlite3
 from statsforecast import StatsForecast
 from utilsforecast.losses import mse
 from utilsforecast.evaluation import evaluate
@@ -158,6 +159,17 @@ print(cpu_memory_df)
 
 cpu_memory_df = cpu_memory_df.sort_values(by='ds').groupby('unique_id').tail(7 * 24)
 
+#Filter out the time series that are too short to be processed in the cross-validation process
+cpu_memory_df = cpu_memory_df.groupby('unique_id').filter(lambda x: len(x) >= 151)
+
+# Count the number of rows for each 'unique_id'
+#row_counts = cpu_memory_df.groupby('unique_id').size()
+
+# Display the distribution of row counts
+#print(row_counts)
+
+
+
 # this makes it so that the outputs of the predict methods have the id as a column 
 # instead of as the index
 os.environ['NIXTLA_ID_AS_COL'] = '1'
@@ -271,4 +283,14 @@ for unique_id, group_df in grouped:
 
 evaluation_df = evaluate_cross_validation(crossvaldation_df, mse)
 
-evaluation_df.to_csv(output_file_path, index=True)
+# Connect to SQLite database (this will create the database if it doesn't exist)
+db_connection = sqlite3.connect('cross-validation.db')
+cursor = db_connection.cursor()
+
+
+#evaluation_df.to_csv(output_file_path, index=True)
+evaluation_df.to_sql('evaluate_cross_validation', db_connection, if_exists='replace', index=True) 
+
+# Commit changes and close the connection
+db_connection.commit()
+db_connection.close()
