@@ -14,7 +14,6 @@ import os
 import pandas as pd
 from datetime import datetime, timedelta
 
-from statsforecast import StatsForecast
 from statsforecast.models import WindowAverage
 from statsforecast.models import AutoARIMA
 from statsforecast.models import AutoTheta
@@ -111,69 +110,205 @@ def get_container_cpu(pod):
 
     return df
 
+def future_date(last_date, forecast_horizon):
+    # Generate future timestamps with hourly frequency
+    future_dates = pd.date_range(start=last_date + pd.Timedelta(hours=1), periods=forecast_horizon, freq='H')
+    return future_dates
+
+def add_future_dates_prediction_confidence_level(prediction, future_dates, model):
+    #re-index with the timestamp
+    mean_series = pd.DataFrame(data=prediction['mean'], index=future_dates)
+    lo_series = pd.Series(prediction['lo-80'].values, index=future_dates)
+    hi_series = pd.Series(prediction['hi-80'].values, index=future_dates)
+    predictions_df = pd.concat([mean_series, lo_series, hi_series], axis=1)
+    predictions_df.columns = [model, model + '-lo-80', model + '-hi-80']
+    predictions_df = predictions_df.reset_index().rename(columns={'index': 'ds'})
+    return predictions_df
+
+def add_future_dates_prediction_confidence_level_df(prediction, future_dates, model):
+    #re-index with the timestamp
+    mean_series = pd.DataFrame(data=prediction['mean'], index=future_dates)
+    lo_series = pd.DataFrame(prediction['lo-80'], index=future_dates)
+    hi_series = pd.DataFrame(prediction['hi-80'], index=future_dates)
+    predictions_df = pd.concat([mean_series, lo_series, hi_series], axis=1)
+    predictions_df.columns = [model, model + '-lo-80', model + '-hi-80']
+    predictions_df = predictions_df.reset_index().rename(columns={'index': 'ds'})
+    return predictions_df
+
+def add_future_dates_prediction(prediction, future_dates, model):
+    #re-index with the timestamp
+    mean_series = pd.DataFrame(data=prediction['mean'], index=future_dates)
+    mean_series.columns = [model]
+    mean_series_df = mean_series.reset_index().rename(columns={'index': 'ds'})
+    return mean_series
+
 # Function definitions for each forecasting model
 def AutoARIMA_forecast(metric, ts):
     arima = AutoARIMA(season_length=24)
     arima = arima.fit(y=ts['y'].to_numpy())
     y_hat_dict = arima.predict(h=24, level=[80])
-    print(y_hat_dict)
-
+    last_date = ts['ds'].iloc[-1]
+    # Number of hours to forecast
+    forecast_horizon = 24 
+    future_dates = future_date(last_date, forecast_horizon)
+    predictions_df = add_future_dates_prediction_confidence_level(y_hat_dict, future_dates, "AutoARIMA")
+    print(predictions_df)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.concat([ts, predictions_df])
+    df_combined.sort_values(by='ds', inplace=True)
+    # Reset the index of the combined DataFrame
+    df_combined.reset_index(drop=True, inplace=True)
+    print(df_combined)
     return f"Forecasting with AutoARIMA for {metric}"
 
 def AutoTheta_forecast(metric, ts):
     theta = AutoTheta(season_length=24)
     theta = theta.fit(y=ts['y'].to_numpy())
     y_hat_dict = theta.predict(h=24, level=[80])
-    print(y_hat_dict)
+    last_date = ts['ds'].iloc[-1]
+    # Number of hours to forecast
+    forecast_horizon = 24 
+    future_dates = future_date(last_date, forecast_horizon)
+    mean_series = pd.DataFrame(data=y_hat_dict['mean'], index=future_dates)
+    lo_series = pd.DataFrame(y_hat_dict['lo-80'], index=future_dates)
+    hi_series = pd.DataFrame(y_hat_dict['hi-80'], index=future_dates)
+    predictions_df = pd.concat([mean_series, lo_series, hi_series], axis=1)
+    predictions_df.columns = ["AutoTheta", 'AutoTheta-lo-80', 'AutoTheta-hi-80']
+    predictions_df = predictions_df.reset_index().rename(columns={'index': 'ds'})
+    print(predictions_df)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.concat([ts, predictions_df])
+    df_combined.sort_values(by='ds', inplace=True)
+    # Reset the index of the combined DataFrame
+    df_combined.reset_index(drop=True, inplace=True)
+    print(df_combined)
     return f"Forecasting with AutoTheta for {metric}"
 
 def AutoETS_forecast(metric, ts):
     autoets = AutoETS(season_length=24)
     autoets = autoets.fit(y=ts['y'].to_numpy())
     y_hat_dict = autoets.predict(h=24, level=[80])
-    print(y_hat_dict)
+    last_date = ts['ds'].iloc[-1]
+    # Number of hours to forecast
+    forecast_horizon = 24 
+    future_dates = future_date(last_date, forecast_horizon)
+    predictions_df = add_future_dates_prediction_confidence_level_df(y_hat_dict, future_dates, "AutoETS")
+    print(predictions_df)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.concat([ts, predictions_df])
+    df_combined.sort_values(by='ds', inplace=True)
+    # Reset the index of the combined DataFrame
+    df_combined.reset_index(drop=True, inplace=True)
+    print(df_combined)
+    
     return f"Forecasting with AutoETS for {metric}"
 
 def CES_forecast(metric, ts):
     ces = AutoCES(season_length=24)
     ces = ces.fit(y=ts['y'].to_numpy())
     y_hat_dict = ces.predict(h=24, level=[80])
-    print(y_hat_dict)
+    last_date = ts['ds'].iloc[-1]
+    # Number of hours to forecast
+    forecast_horizon = 24 
+    future_dates = future_date(last_date, forecast_horizon)
+    predictions_df = add_future_dates_prediction_confidence_level_df(y_hat_dict, future_dates, "CES")
+    print(predictions_df)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.concat([ts, predictions_df])
+    df_combined.sort_values(by='ds', inplace=True)
+    # Reset the index of the combined DataFrame
+    df_combined.reset_index(drop=True, inplace=True)
+    print(df_combined)
     return f"Forecasting with CES for {metric}"
 
 def MSTL_forecast(metric, ts):
     mstl_model = MSTL(season_length=24)
     mstl_model = mstl_model.fit(y=ts['y'].to_numpy())
     y_hat_dict = mstl_model.predict(h=24, level=[80])
-    print(y_hat_dict)
+    last_date = ts['ds'].iloc[-1]
+    # Number of hours to forecast
+    forecast_horizon = 24 
+    future_dates = future_date(last_date, forecast_horizon)
+    predictions_df = add_future_dates_prediction_confidence_level_df(y_hat_dict, future_dates, "MSTL")
+    print(predictions_df)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.concat([ts, predictions_df])
+    df_combined.sort_values(by='ds', inplace=True)
+    # Reset the index of the combined DataFrame
+    df_combined.reset_index(drop=True, inplace=True)
+    print(df_combined)
     return f"Forecasting with MSTL for {metric}"
 
 def SeasonalNaive_forecast(metric, ts):
     model = SeasonalNaive(season_length=24)
     model = model.fit(y=ts['y'].to_numpy())
     y_hat_dict = model.predict(h=24, level=[80])
-    print(y_hat_dict)
+    last_date = ts['ds'].iloc[-1]
+    # Number of hours to forecast
+    forecast_horizon = 24
+    future_dates = future_date(last_date, forecast_horizon)
+    predictions_df = add_future_dates_prediction_confidence_level_df(y_hat_dict, future_dates, "SeasonalNaive")
+    print(predictions_df)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.concat([ts, predictions_df])
+    df_combined.sort_values(by='ds', inplace=True)
+    # Reset the index of the combined DataFrame
+    df_combined.reset_index(drop=True, inplace=True)
+    print(df_combined)
     return f"Forecasting with SeasonalNaive for {metric}"
 
 def WindowAverage_forecast(metric, ts):
     model = WindowAverage(window_size=24)
     model = model.fit(y=ts['y'])
     y_hat_dict = model.predict(h=24)
-    print(y_hat_dict)
+    last_date = ts['ds'].iloc[-1]
+    # Number of hours to forecast
+    forecast_horizon = 24 
+    future_dates = future_date(last_date, forecast_horizon)
+    predictions_df = add_future_dates_prediction(y_hat_dict, future_dates, "WindowAverage")
+    print(predictions_df)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.concat([ts, predictions_df])
+    df_combined.sort_values(by='ds', inplace=True)
+    # Reset the index of the combined DataFrame
+    df_combined.reset_index(drop=True, inplace=True)
+    print(df_combined)
     return f"Forecasting with WindowAverage for {metric}"
 
 def SeasWA_forecast(metric, ts):
     model = SeasonalWindowAverage(window_size=1, season_length=24)
     model = model.fit(y=ts['y'].to_numpy())
     y_hat_dict = model.predict(h=24)
-    print(y_hat_dict)
+    last_date = ts['ds'].iloc[-1]
+    # Number of hours to forecast
+    forecast_horizon = 24 
+    future_dates = future_date(last_date, forecast_horizon)
+    predictions_df = add_future_dates_prediction(y_hat_dict, future_dates, "SeasWA")
+    print(predictions_df)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.concat([ts, predictions_df])
+    df_combined.sort_values(by='ds', inplace=True)
+    # Reset the index of the combined DataFrame
+    df_combined.reset_index(drop=True, inplace=True)
+    print(df_combined)
     return f"Forecasting with SeasWA for {metric}"
 
 def Naive_forecast(metric, ts):
     model = Naive()
     model = model.fit(y=ts['y'].to_numpy())
     y_hat_dict = model.predict(h=24)
-    print(y_hat_dict)
+    last_date = ts['ds'].iloc[-1]
+    # Number of hours to forecast
+    forecast_horizon = 24 
+    future_dates = future_date(last_date, forecast_horizon)
+    predictions_df = add_future_dates_prediction(y_hat_dict, future_dates, "Naive")
+    print(predictions_df)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.concat([ts, predictions_df])
+    df_combined.sort_values(by='ds', inplace=True)
+    # Reset the index of the combined DataFrame
+    df_combined.reset_index(drop=True, inplace=True)
+    print(df_combined)
     return f"Forecasting with Naive for {metric}"
 
 def prophet_forecast(metric, ts):
@@ -182,6 +317,9 @@ def prophet_forecast(metric, ts):
     future = model.make_future_dataframe(periods=24, freq='H')
     forecast = model.predict(future)
     print(forecast)
+    # Concatenate the fit and preicted datasets
+    df_combined = pd.merge(ts, forecast, on='ds', how='outer')
+    print(df_combined)
     return f"Forecasting with Prophet for {metric}"
 
 # Main script
