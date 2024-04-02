@@ -296,12 +296,13 @@ def SeasWA_forecast(metric, ts):
 def Naive_forecast(metric, ts):
     model = Naive()
     model = model.fit(y=ts['y'].to_numpy())
-    y_hat_dict = model.predict(h=24)
+    y_hat_dict = model.predict(h=24, level=[80])
+    print(y_hat_dict)
     last_date = ts['ds'].iloc[-1]
     # Number of hours to forecast
     forecast_horizon = 24 
     future_dates = future_date(last_date, forecast_horizon)
-    predictions_df = add_future_dates_prediction(y_hat_dict, future_dates, "Naive")
+    predictions_df = add_future_dates_prediction_confidence_level_df(y_hat_dict, future_dates, "Naive")
     print(predictions_df)
     # Concatenate the fit and preicted datasets
     df_combined = pd.concat([ts, predictions_df])
@@ -358,7 +359,7 @@ def main(pod_name):
         # Query the database for the modified pod name
         cursor.execute("SELECT best_model FROM evaluate_cross_validation WHERE unique_id=?", (modified_pod_name,))
         result = cursor.fetchone()
-        #result = ["prophet"]
+        result = ["Naive"]
 
         if result:
             best_model = result[0]
