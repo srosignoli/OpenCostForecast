@@ -12,6 +12,8 @@ import sys
 import requests
 import os
 import pandas as pd
+import plotly.graph_objects as go
+
 from datetime import datetime, timedelta
 
 from statsforecast.models import WindowAverage
@@ -140,7 +142,85 @@ def add_future_dates_prediction(prediction, future_dates, model):
     mean_series = pd.DataFrame(data=prediction['mean'], index=future_dates)
     mean_series.columns = [model]
     mean_series_df = mean_series.reset_index().rename(columns={'index': 'ds'})
-    return mean_series
+    return mean_series_df
+
+def plot_save_chart_with_confidence_level(df, model, metric):
+    # Plotting
+    fig = go.Figure()
+
+    # Historical data
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['y'], mode='lines', name='Historical Data', line=dict(color='blue')))
+
+    # Predicted values
+    fig.add_trace(go.Scatter(x=df['ds'], y=df[model], mode='lines', name='Predicted', line=dict(color='red')))
+
+    # Confidence interval
+    fig.add_trace(go.Scatter(x=df['ds'], y=df[model + '-lo-80'], mode='lines', name='Confidence Interval Lower Bound', line=dict(width=0)))
+    fig.add_trace(go.Scatter(x=df['ds'], y=df[model + '-hi-80'], mode='lines', name='Confidence Interval Upper Bound', line=dict(width=0),
+                            fill='tonexty', fillcolor='rgba(255, 0, 0, 0.1)'))  # Using fill to create the shaded confidence interval area
+
+    # Layout adjustments
+    fig.update_layout(title='Historical Data and 24H Predictions with Confidence Interval for ' + metric + ' predicted with ' + model,
+                    xaxis_title='Date',
+                    yaxis_title='Value',
+                    showlegend=True)
+
+    # Show plot
+    fig.show()
+
+    # Save plot to file
+    fig.write_image(metric+"-historical_predictions_plot.png", width=800, height=600)
+
+def plot_save_chart_prophet(df, metric):
+    # Plotting
+    fig = go.Figure()
+
+    # Historical data
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['y'], mode='lines', name='Historical Data', line=dict(color='blue')))
+
+    # Predicted values
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['yhat'], mode='lines', name='Predicted', line=dict(color='red')))
+
+    # Confidence interval
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['yhat_lower'], mode='lines', name='Confidence Interval Lower Bound', line=dict(width=0)))
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['yhat_upper'], mode='lines', name='Confidence Interval Upper Bound', line=dict(width=0),
+                            fill='tonexty', fillcolor='rgba(255, 0, 0, 0.1)'))  # Using fill to create the shaded confidence interval area
+
+    # Layout adjustments
+    fig.update_layout(title='Historical Data and 24H Predictions with Confidence Interval for ' + metric + ' predicted with Prophet',
+                    xaxis_title='Date',
+                    yaxis_title='Value',
+                    showlegend=True)
+
+    # Show plot
+    fig.show()
+
+    # Save plot to file
+    fig.write_image(metric+"-historical_predictions_plot.png", width=800, height=600)
+
+
+def plot_save_chart(df, model, metric):
+    # Plotting
+    fig = go.Figure()
+
+    # Historical data
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['y'], mode='lines', name='Historical Data', line=dict(color='blue')))
+
+    # Predicted values
+    fig.add_trace(go.Scatter(x=df['ds'], y=df[model], mode='lines', name='Predicted', line=dict(color='red')))
+
+   
+    # Layout adjustments
+    fig.update_layout(title='Historical Data and 24H Predictions with Confidence Interval for ' + metric + ' predicted with ' + model,
+                    xaxis_title='Date',
+                    yaxis_title='Value',
+                    showlegend=True)
+
+    # Show plot
+    fig.show()
+
+    # Save plot to file
+    fig.write_image(metric+"-historical_predictions_plot.png", width=800, height=600)
 
 # Function definitions for each forecasting model
 def AutoARIMA_forecast(metric, ts):
@@ -159,6 +239,7 @@ def AutoARIMA_forecast(metric, ts):
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
     print(df_combined)
+    plot_save_chart_with_confidence_level(df_combined, "AutoARIMA", metric)
     return f"Forecasting with AutoARIMA for {metric}"
 
 def AutoTheta_forecast(metric, ts):
@@ -182,6 +263,7 @@ def AutoTheta_forecast(metric, ts):
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
     print(df_combined)
+    plot_save_chart_with_confidence_level(df_combined, "AutoTheta", metric)
     return f"Forecasting with AutoTheta for {metric}"
 
 def AutoETS_forecast(metric, ts):
@@ -199,6 +281,7 @@ def AutoETS_forecast(metric, ts):
     df_combined.sort_values(by='ds', inplace=True)
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
+    plot_save_chart_with_confidence_level(df_combined, "AutoETS", metric)
     print(df_combined)
     
     return f"Forecasting with AutoETS for {metric}"
@@ -218,6 +301,7 @@ def CES_forecast(metric, ts):
     df_combined.sort_values(by='ds', inplace=True)
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
+    plot_save_chart_with_confidence_level(df_combined, "CES", metric)
     print(df_combined)
     return f"Forecasting with CES for {metric}"
 
@@ -236,6 +320,7 @@ def MSTL_forecast(metric, ts):
     df_combined.sort_values(by='ds', inplace=True)
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
+    plot_save_chart_with_confidence_level(df_combined, "MSTL", metric)
     print(df_combined)
     return f"Forecasting with MSTL for {metric}"
 
@@ -254,6 +339,7 @@ def SeasonalNaive_forecast(metric, ts):
     df_combined.sort_values(by='ds', inplace=True)
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
+    plot_save_chart_with_confidence_level(df_combined, "SeasonalNaive", metric)
     print(df_combined)
     return f"Forecasting with SeasonalNaive for {metric}"
 
@@ -272,6 +358,7 @@ def WindowAverage_forecast(metric, ts):
     df_combined.sort_values(by='ds', inplace=True)
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
+    plot_save_chart(df_combined, "WindowAverage", metric)
     print(df_combined)
     return f"Forecasting with WindowAverage for {metric}"
 
@@ -290,6 +377,7 @@ def SeasWA_forecast(metric, ts):
     df_combined.sort_values(by='ds', inplace=True)
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
+    plot_save_chart(df_combined, "SeasWA", metric)
     print(df_combined)
     return f"Forecasting with SeasWA for {metric}"
 
@@ -309,6 +397,7 @@ def Naive_forecast(metric, ts):
     df_combined.sort_values(by='ds', inplace=True)
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
+    plot_save_chart_with_confidence_level(df_combined, "Naive", metric)
     print(df_combined)
     return f"Forecasting with Naive for {metric}"
 
@@ -320,6 +409,7 @@ def prophet_forecast(metric, ts):
     print(forecast)
     # Concatenate the fit and preicted datasets
     df_combined = pd.merge(ts, forecast, on='ds', how='outer')
+    plot_save_chart_prophet(df_combined, metric)
     print(df_combined)
     return f"Forecasting with Prophet for {metric}"
 
@@ -359,7 +449,7 @@ def main(pod_name):
         # Query the database for the modified pod name
         cursor.execute("SELECT best_model FROM evaluate_cross_validation WHERE unique_id=?", (modified_pod_name,))
         result = cursor.fetchone()
-        result = ["Naive"]
+        result = ["prophet"]
 
         if result:
             best_model = result[0]
