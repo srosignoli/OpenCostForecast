@@ -11,7 +11,9 @@ import sqlite3
 import sys
 import requests
 import os
+import time
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 
 from datetime import datetime, timedelta
@@ -111,6 +113,49 @@ def get_container_cpu(pod):
     df = pd.DataFrame(data_points, columns=['ds', 'y'])
 
     return df
+
+def get_cpu_hourly_cost(node):
+    query = f'node_cpu_hourly_cost{{node="{node}"}}'
+
+    # Construct the API URL to query Prometheus
+    query_url = f'{PROMETHEUS}/api/v1/query'
+    params = {
+        'query': query,
+    }
+
+    # Make the HTTP GET request to Prometheus
+    response = requests.get(query_url, params=params)
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Parse the JSON response
+        result = response.json()
+        cpu_cost = result['data']['result'][0]['value'][1]
+        return cpu_cost
+    else:
+        print("Failed to fetch data:", response.text)
+
+def get_ram_hourly_cost(node):
+    query = f'node_ram_hourly_cost{{node="{node}"}}'
+
+    # Construct the API URL to query Prometheus
+    query_url = f'{PROMETHEUS}/api/v1/query'
+    params = {
+        'query': query,
+    }
+
+    # Make the HTTP GET request to Prometheus
+    response = requests.get(query_url, params=params)
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Parse the JSON response
+        result = response.json()
+        ram_cost = result['data']['result'][0]['value'][1]
+        return ram_cost
+    else:
+        print("Failed to fetch data:", response.text)
+
 
 def future_date(last_date, forecast_horizon):
     # Generate future timestamps with hourly frequency
@@ -222,6 +267,33 @@ def plot_save_chart(df, model, metric):
     # Save plot to file
     fig.write_image(metric+"-historical_predictions_plot.png", width=800, height=600)
 
+def plot_save_chart_cost_with_confidence_level(df, cpu_model, ram_model):
+    # Plotting
+    fig = go.Figure()
+
+    # Historical data
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['y'], mode='lines', name='Historical Data', line=dict(color='blue')))
+
+    # Predicted values
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['forecast'], mode='lines', name='Predicted', line=dict(color='red')))
+
+    # Confidence interval
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['forecast-lo-80'], mode='lines', name='Confidence Interval Lower Bound', line=dict(width=0)))
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['forecast-hi-80'], mode='lines', name='Confidence Interval Upper Bound', line=dict(width=0),
+                            fill='tonexty', fillcolor='rgba(255, 0, 0, 0.1)'))  # Using fill to create the shaded confidence interval area
+
+    # Layout adjustments
+    fig.update_layout(title='24H Cost Predictions with Confidence Interval for CPU predicted with ' + cpu_model + ' and RAM predicted with ' + ram_model,
+                    xaxis_title='Date',
+                    yaxis_title='Value',
+                    showlegend=True)
+
+    # Show plot
+    fig.show()
+
+    # Save plot to file
+    fig.write_image("cost_predictions_plot.png", width=800, height=600)
+
 # Function definitions for each forecasting model
 def AutoARIMA_forecast(metric, ts):
     arima = AutoARIMA(season_length=24)
@@ -240,7 +312,8 @@ def AutoARIMA_forecast(metric, ts):
     df_combined.reset_index(drop=True, inplace=True)
     print(df_combined)
     plot_save_chart_with_confidence_level(df_combined, "AutoARIMA", metric)
-    return f"Forecasting with AutoARIMA for {metric}"
+    print(f"Forecasting with AutoARIMA for {metric}")
+    return df_combined
 
 def AutoTheta_forecast(metric, ts):
     theta = AutoTheta(season_length=24)
@@ -264,7 +337,8 @@ def AutoTheta_forecast(metric, ts):
     df_combined.reset_index(drop=True, inplace=True)
     print(df_combined)
     plot_save_chart_with_confidence_level(df_combined, "AutoTheta", metric)
-    return f"Forecasting with AutoTheta for {metric}"
+    print(f"Forecasting with AutoTheta for {metric}")
+    return df_combined
 
 def AutoETS_forecast(metric, ts):
     autoets = AutoETS(season_length=24)
@@ -283,8 +357,8 @@ def AutoETS_forecast(metric, ts):
     df_combined.reset_index(drop=True, inplace=True)
     plot_save_chart_with_confidence_level(df_combined, "AutoETS", metric)
     print(df_combined)
-    
-    return f"Forecasting with AutoETS for {metric}"
+    print(f"Forecasting with AutoETS for {metric}")
+    return df_combined
 
 def CES_forecast(metric, ts):
     ces = AutoCES(season_length=24)
@@ -303,7 +377,8 @@ def CES_forecast(metric, ts):
     df_combined.reset_index(drop=True, inplace=True)
     plot_save_chart_with_confidence_level(df_combined, "CES", metric)
     print(df_combined)
-    return f"Forecasting with CES for {metric}"
+    print(f"Forecasting with CES for {metric}")
+    return df_combined
 
 def MSTL_forecast(metric, ts):
     mstl_model = MSTL(season_length=24)
@@ -322,7 +397,8 @@ def MSTL_forecast(metric, ts):
     df_combined.reset_index(drop=True, inplace=True)
     plot_save_chart_with_confidence_level(df_combined, "MSTL", metric)
     print(df_combined)
-    return f"Forecasting with MSTL for {metric}"
+    print(f"Forecasting with MSTL for {metric}")
+    return df_combined
 
 def SeasonalNaive_forecast(metric, ts):
     model = SeasonalNaive(season_length=24)
@@ -341,7 +417,8 @@ def SeasonalNaive_forecast(metric, ts):
     df_combined.reset_index(drop=True, inplace=True)
     plot_save_chart_with_confidence_level(df_combined, "SeasonalNaive", metric)
     print(df_combined)
-    return f"Forecasting with SeasonalNaive for {metric}"
+    print(f"Forecasting with SeasonalNaive for {metric}")
+    return df_combined
 
 def WindowAverage_forecast(metric, ts):
     model = WindowAverage(window_size=24)
@@ -359,8 +436,8 @@ def WindowAverage_forecast(metric, ts):
     # Reset the index of the combined DataFrame
     df_combined.reset_index(drop=True, inplace=True)
     plot_save_chart(df_combined, "WindowAverage", metric)
-    print(df_combined)
-    return f"Forecasting with WindowAverage for {metric}"
+    print(f"Forecasting with WindowAverage for {metric}")
+    return df_combined
 
 def SeasWA_forecast(metric, ts):
     model = SeasonalWindowAverage(window_size=1, season_length=24)
@@ -379,7 +456,8 @@ def SeasWA_forecast(metric, ts):
     df_combined.reset_index(drop=True, inplace=True)
     plot_save_chart(df_combined, "SeasWA", metric)
     print(df_combined)
-    return f"Forecasting with SeasWA for {metric}"
+    print(f"Forecasting with SeasWA for {metric}")
+    return df_combined
 
 def Naive_forecast(metric, ts):
     model = Naive()
@@ -399,7 +477,8 @@ def Naive_forecast(metric, ts):
     df_combined.reset_index(drop=True, inplace=True)
     plot_save_chart_with_confidence_level(df_combined, "Naive", metric)
     print(df_combined)
-    return f"Forecasting with Naive for {metric}"
+    print(f"Forecasting with Naive for {metric}")
+    return df_combined
 
 def prophet_forecast(metric, ts):
     model = Prophet()
@@ -411,7 +490,8 @@ def prophet_forecast(metric, ts):
     df_combined = pd.merge(ts, forecast, on='ds', how='outer')
     plot_save_chart_prophet(df_combined, metric)
     print(df_combined)
-    return f"Forecasting with Prophet for {metric}"
+    print(f"Forecasting with Prophet for {metric}")
+    return df_combined
 
 # Main script
 def main(pod_name):
@@ -468,9 +548,81 @@ def main(pod_name):
             }.get(best_model, lambda: f"Error: No forecasting function for model {best_model}")
 
             # Call the forecasting function
-            print(forecast_function())
+            df_forecast = forecast_function()
+            #Check if is a prophet dataset
+            if(df_forecast.columns.tolist()[2] == 'trend'):
+                #if yes normalize the dataset column names and number
+                rename_dict = {
+                    'yhat': 'forecast',
+                    'yhat_lower': 'forecast-lo-80',
+                    'yhat_upper': 'forecast-hi-80'
+                }
+                df_forecast = df_forecast.rename(columns=rename_dict)
+                df_forecast = df_forecast[['ds', 'y', 'forecast', 'forecast-lo-80', 'forecast-hi-80']]
+                print(df_forecast)
+            if (metric == "CPU"):
+                cpu_cost_hour = get_cpu_hourly_cost("kube2")
+                print("CPU hourly cost: ", cpu_cost_hour)
+                # Multiply non-NaN values by cpu_price for specified columns
+                df_forecast_cpu_cost = df_forecast.apply(lambda x: x * float(cpu_cost_hour) if x.name != 'ds' else x)
+                cpu_forecast_columns = df_forecast.columns.tolist()
+            elif (metric == "RAM"):
+                ram_cost_hour = get_ram_hourly_cost("kube2")
+                print("RAM hourly cost: ", ram_cost_hour)
+                # Multiply non-NaN values by cpu_price for specified columns
+                df_forecast_ram_cost = df_forecast.apply(lambda x: x * float(ram_cost_hour) if x.name != 'ds' else x)
+                ram_forecast_columns = df_forecast.columns.tolist()
         else:
             print(f"Error: No matching pod found for {modified_pod_name}")
+
+    cpu_forecast_model = cpu_forecast_columns[2]
+    ram_forecast_model = ram_forecast_columns[2]
+    models_no_confidence_interval = ['WindowAverage', 'SeasWA']
+
+    if (cpu_forecast_model in models_no_confidence_interval and ram_forecast_model in models_no_confidence_interval):
+        df_sum_updated = pd.DataFrame()
+        df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
+        df_sum_updated['y'] = df_forecast_cpu_cost['y'] + df_forecast_ram_cost['y']
+        df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
+        print(df_sum_updated)
+        plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+    elif (cpu_forecast_model not in models_no_confidence_interval and ram_forecast_model in models_no_confidence_interval):
+        df_sum_updated = pd.DataFrame()
+        df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
+        df_sum_updated['y'] = df_forecast_cpu_cost['y'] + df_forecast_ram_cost['y']
+        df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
+        df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 3]  + df_forecast_ram_cost.iloc[:, 2] 
+        df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 4]  + df_forecast_ram_cost.iloc[:, 2] 
+        print(df_sum_updated)
+        plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+    elif (cpu_forecast_model in models_no_confidence_interval and ram_forecast_model not in models_no_confidence_interval):
+        df_sum_updated = pd.DataFrame()
+        df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
+        df_sum_updated['y'] = df_forecast_cpu_cost['y'] + df_forecast_ram_cost['y']
+        df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
+        df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 3] 
+        df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 4]
+        print(df_sum_updated)
+        plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+    else:
+        df_sum_updated = pd.DataFrame()
+        df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
+        df_sum_updated['y'] = df_forecast_cpu_cost['y'] + df_forecast_ram_cost['y']
+        df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
+        df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 3]  + df_forecast_ram_cost.iloc[:, 3] 
+        df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 4]  + df_forecast_ram_cost.iloc[:, 4] 
+        print(df_sum_updated)
+        plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+
+    # Calculate the sum of each column after multiplication, excluding NaN values
+    # Note: This retains 'ds' for plotting, but it's not included in the sum calculation
+    column_sums = df_sum_updated[df_sum_updated.columns[df_sum_updated.columns != 'ds']].sum()
+
+    
+
+    print("CPU forecast model: ", cpu_forecast_model)
+    print("RAM forecast model: ", ram_forecast_model)
+    print("\nColumn sums after multiplication:\n", column_sums)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
