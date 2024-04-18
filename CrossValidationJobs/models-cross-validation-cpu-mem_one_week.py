@@ -33,7 +33,7 @@ def get_containers_memory(pod_list):
         QUERY = f'container_memory_allocation_bytes{{pod="{pod}"}}/1024/1024/1024'
         # Calculate start and end times for the last hour
         END = datetime.now()
-        START = END - timedelta(hours=168)
+        START = END - timedelta(days=19)
         # Convert times to UNIX timestamps
         start_time = START.timestamp()
         end_time = END.timestamp()
@@ -44,12 +44,13 @@ def get_containers_memory(pod_list):
             'query': QUERY,
             'start': start_time,
             'end': end_time,
-            'step': '60s'  # 60 seconds intervals
+            'step': '60m'  # 60 seconds intervals
         }
 
         # Make the HTTP request to Prometheus
         response = requests.get(query_range_url, params=params)
         # Parse the JSON response
+        print(response)
         data = response.json()['data']['result']
 
         # Initialize an empty list to hold the data points
@@ -76,7 +77,7 @@ def get_containers_cpu(pod_list):
         QUERY = f'container_cpu_allocation{{pod="{pod}"}}'
         # Calculate start and end times for the last hour
         END = datetime.now()
-        START = END - timedelta(hours=168)
+        START = END - timedelta(days=19)
         # Convert times to UNIX timestamps
         start_time = START.timestamp()
         end_time = END.timestamp()
@@ -87,7 +88,7 @@ def get_containers_cpu(pod_list):
             'query': QUERY,
             'start': start_time,
             'end': end_time,
-            'step': '60s'  # 60 seconds intervals
+            'step': '60m'  # 60 seconds intervals
         }
 
         # Make the HTTP request to Prometheus
@@ -158,10 +159,10 @@ cpu_memory_df = cpu_memory_df.reset_index()
 
 print(cpu_memory_df)
 
-cpu_memory_df = cpu_memory_df.sort_values(by='ds').groupby('unique_id').tail(7 * 24)
+cpu_memory_df = cpu_memory_df.sort_values(by='ds').groupby('unique_id').tail(19 * 24)
 
 #Filter out the time series that are too short to be processed in the cross-validation process
-cpu_memory_df = cpu_memory_df.groupby('unique_id').filter(lambda x: len(x) >= 151)
+cpu_memory_df = cpu_memory_df.groupby('unique_id').filter(lambda x: len(x) >= 400)
 
 # Count the number of rows for each 'unique_id'
 #row_counts = cpu_memory_df.groupby('unique_id').size()
@@ -223,7 +224,7 @@ sf = StatsForecast(
 
 crossvaldation_df = sf.cross_validation(
     df=cpu_memory_df,
-    h=24,
+    h=168,
     step_size=48,
     n_windows=1
 )
@@ -248,7 +249,7 @@ for unique_id, group_df in grouped:
     total_days = daily_fraction.sum()
     total_days_rounded_down = math.floor(total_days * 10) / 10
 
-    horizon = 1
+    horizon = 7
     initial = total_days_rounded_down - horizon - 1
     prophet_horizon = str(horizon) + ' days'
     prophet_initial = str(initial) + ' days'
@@ -289,7 +290,7 @@ db_connection = sqlite3.connect('cross-validation.db')
 cursor = db_connection.cursor()
 
 
-evaluation_df.to_sql('evaluate_cross_validation', db_connection, if_exists='replace', index=True) 
+evaluation_df.to_sql('evaluate_cross_validation_one_week', db_connection, if_exists='replace', index=True) 
 
 # Commit changes and close the connection
 db_connection.commit()
