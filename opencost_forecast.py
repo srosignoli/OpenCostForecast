@@ -625,7 +625,7 @@ def forecast_one_day(pod_name, node):
         df_sum_updated['y'] = df_forecast_cpu_cost['y'] + df_forecast_ram_cost['y']
         df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
         print(df_sum_updated)
-        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 24)
     elif (cpu_forecast_model not in models_no_confidence_interval and ram_forecast_model in models_no_confidence_interval):
         df_sum_updated = pd.DataFrame()
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
@@ -634,7 +634,7 @@ def forecast_one_day(pod_name, node):
         df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 3]  + df_forecast_ram_cost.iloc[:, 2] 
         df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 4]  + df_forecast_ram_cost.iloc[:, 2] 
         print(df_sum_updated)
-        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 24)
     elif (cpu_forecast_model in models_no_confidence_interval and ram_forecast_model not in models_no_confidence_interval):
         df_sum_updated = pd.DataFrame()
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
@@ -643,7 +643,7 @@ def forecast_one_day(pod_name, node):
         df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 3] 
         df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 4]
         print(df_sum_updated)
-        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 24)
     else:
         df_sum_updated = pd.DataFrame()
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
@@ -761,7 +761,7 @@ def forecast_one_week(pod_name, node):
         df_sum_updated['y'] = df_forecast_cpu_cost['y'] + df_forecast_ram_cost['y']
         df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
         print(df_sum_updated)
-        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 168)
     elif (cpu_forecast_model not in models_no_confidence_interval and ram_forecast_model in models_no_confidence_interval):
         df_sum_updated = pd.DataFrame()
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
@@ -770,7 +770,7 @@ def forecast_one_week(pod_name, node):
         df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 3]  + df_forecast_ram_cost.iloc[:, 2] 
         df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 4]  + df_forecast_ram_cost.iloc[:, 2] 
         print(df_sum_updated)
-        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 168)
     elif (cpu_forecast_model in models_no_confidence_interval and ram_forecast_model not in models_no_confidence_interval):
         df_sum_updated = pd.DataFrame()
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
@@ -779,7 +779,7 @@ def forecast_one_week(pod_name, node):
         df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 3] 
         df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 4]
         print(df_sum_updated)
-        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model)
+        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 168)
     else:
         df_sum_updated = pd.DataFrame()
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
