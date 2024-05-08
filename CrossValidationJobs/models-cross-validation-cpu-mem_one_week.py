@@ -159,7 +159,7 @@ cpu_memory_df = cpu_memory_df.reset_index()
 
 print(cpu_memory_df)
 
-cpu_memory_df = cpu_memory_df.sort_values(by='ds').groupby('unique_id').tail(19 * 24)
+cpu_memory_df = cpu_memory_df.sort_values(by='ds').groupby('unique_id').tail(30 * 24)
 
 #Filter out the time series that are too short to be processed in the cross-validation process
 cpu_memory_df = cpu_memory_df.groupby('unique_id').filter(lambda x: len(x) >= 400)

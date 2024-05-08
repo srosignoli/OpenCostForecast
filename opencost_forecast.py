@@ -331,6 +331,30 @@ def plot_save_chart_cost_with_confidence_level(df, cpu_model, ram_model, forecas
     #fig.write_image("cost_predictions_plot.png", width=800, height=600)
     return fig
 
+def plot_save_chart_cost_withouth_confidence_level(df, cpu_model, ram_model, forecast_period):
+    # Plotting
+    fig = go.Figure()
+
+    # Historical data
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['y'], mode='lines', name='Historical Data', line=dict(color='blue')))
+
+    # Predicted values
+    fig.add_trace(go.Scatter(x=df['ds'], y=df['forecast'], mode='lines', name='Predicted', line=dict(color='red')))
+
+
+    # Layout adjustments
+    fig.update_layout(title=str(forecast_period) + 'H Cost Predictions with Confidence Interval for CPU predicted with ' + cpu_model + ' and RAM predicted with ' + ram_model,
+                    xaxis_title='Date',
+                    yaxis_title='Value',
+                    showlegend=True)
+
+    # Show plot
+    #fig.show()
+
+    # Save plot to file
+    #fig.write_image("cost_predictions_plot.png", width=800, height=600)
+    return fig
+
 # Function definitions for each forecasting model
 def AutoARIMA_forecast(metric, ts, forecast_period):
     arima = AutoARIMA(season_length=24)
@@ -523,6 +547,10 @@ def prophet_forecast(metric, ts, forecast_period):
     future = model.make_future_dataframe(periods=forecast_period, freq='H')
     forecast = model.predict(future)
     print(forecast)
+    # Determine the maximum date in your training data
+    last_history_date = ts['ds'].max()
+    # Assign NaN to predictions on historical dates
+    forecast.loc[forecast['ds'] <= last_history_date, ['yhat', 'yhat_lower', 'yhat_upper']] = np.nan
     # Concatenate the fit and preicted datasets
     df_combined = pd.merge(ts, forecast, on='ds', how='outer')
     prophet_plot = plot_save_chart_prophet(df_combined, metric, forecast_period)
@@ -567,7 +595,10 @@ def forecast_one_day(pod_name, node):
         # Query the database for the modified pod name
         cursor.execute("SELECT best_model FROM evaluate_cross_validation WHERE unique_id=?", (modified_pod_name,))
         result = cursor.fetchone()
-        #result = ["prophet"]
+        #if metric == "CPU":
+        #    result = ["SeasonalNaive"]
+        #else:
+        #    result = ["SeasonalNaive"]
 
         if result:
             best_model = result[0]
@@ -591,12 +622,12 @@ def forecast_one_day(pod_name, node):
             if(df_forecast.columns.tolist()[2] == 'trend'):
                 #if yes normalize the dataset column names and number
                 rename_dict = {
-                    'yhat': 'forecast',
-                    'yhat_lower': 'forecast-lo-80',
-                    'yhat_upper': 'forecast-hi-80'
+                    'yhat': 'forecastP',
+                    'yhat_lower': 'forecastP-lo-80',
+                    'yhat_upper': 'forecastP-hi-80'
                 }
                 df_forecast = df_forecast.rename(columns=rename_dict)
-                df_forecast = df_forecast[['ds', 'y', 'forecast', 'forecast-lo-80', 'forecast-hi-80']]
+                df_forecast = df_forecast[['ds', 'y', 'forecastP', 'forecastP-lo-80', 'forecastP-hi-80']]
                 print(df_forecast)
             if (metric == "CPU"):
                 cpu_cost_hour = get_cpu_hourly_cost(node)
@@ -615,8 +646,8 @@ def forecast_one_day(pod_name, node):
         else:
             print(f"Error: No matching pod found for {modified_pod_name}")
 
-    cpu_forecast_model = cpu_forecast_columns[2] if cpu_forecast_columns[2] != "forecast" else "Prophet"
-    ram_forecast_model = ram_forecast_columns[2] if ram_forecast_columns[2] != "forecast" else "Prophet"
+    cpu_forecast_model = cpu_forecast_columns[2] if cpu_forecast_columns[2] != "forecastP" else "Prophet"
+    ram_forecast_model = ram_forecast_columns[2] if ram_forecast_columns[2] != "forecastP" else "Prophet"
     models_no_confidence_interval = ['WindowAverage', 'SeasWA']
 
     if (cpu_forecast_model in models_no_confidence_interval and ram_forecast_model in models_no_confidence_interval):
@@ -624,8 +655,9 @@ def forecast_one_day(pod_name, node):
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
         df_sum_updated['y'] = df_forecast_cpu_cost['y'] + df_forecast_ram_cost['y']
         df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
+        print("Sum CPU and Mem cost 1")
         print(df_sum_updated)
-        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 24)
+        cost_forecast_plot = plot_save_chart_cost_withouth_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 24)
     elif (cpu_forecast_model not in models_no_confidence_interval and ram_forecast_model in models_no_confidence_interval):
         df_sum_updated = pd.DataFrame()
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
@@ -633,8 +665,9 @@ def forecast_one_day(pod_name, node):
         df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
         df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 3]  + df_forecast_ram_cost.iloc[:, 2] 
         df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 4]  + df_forecast_ram_cost.iloc[:, 2] 
+        print("Sum CPU and Mem cost 2")
         print(df_sum_updated)
-        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 24)
+        cost_forecast_plot = plot_save_chart_cost_withouth_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 24)
     elif (cpu_forecast_model in models_no_confidence_interval and ram_forecast_model not in models_no_confidence_interval):
         df_sum_updated = pd.DataFrame()
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
@@ -642,8 +675,9 @@ def forecast_one_day(pod_name, node):
         df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
         df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 3] 
         df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 4]
+        print("Sum CPU and Mem cost 3")
         print(df_sum_updated)
-        cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 24)
+        cost_forecast_plot = plot_save_chart_cost_withouth_confidence_level(df_sum_updated,  cpu_forecast_model, ram_forecast_model, 24)
     else:
         df_sum_updated = pd.DataFrame()
         df_sum_updated['ds'] = df_forecast_cpu_cost['ds']
@@ -651,6 +685,7 @@ def forecast_one_day(pod_name, node):
         df_sum_updated['forecast'] = df_forecast_cpu_cost.iloc[:, 2]  + df_forecast_ram_cost.iloc[:, 2]
         df_sum_updated['forecast-lo-80'] = df_forecast_cpu_cost.iloc[:, 3]  + df_forecast_ram_cost.iloc[:, 3] 
         df_sum_updated['forecast-hi-80'] = df_forecast_cpu_cost.iloc[:, 4]  + df_forecast_ram_cost.iloc[:, 4] 
+        print("Sum CPU and Mem cost 4")
         print(df_sum_updated)
         cost_forecast_plot = plot_save_chart_cost_with_confidence_level(df_sum_updated, cpu_forecast_model, ram_forecast_model, 24)
 
@@ -703,7 +738,10 @@ def forecast_one_week(pod_name, node):
         # Query the database for the modified pod name
         cursor.execute("SELECT best_model FROM evaluate_cross_validation_one_week WHERE unique_id=?", (modified_pod_name,))
         result = cursor.fetchone()
-        #result = ["prophet"]
+        # if(metric == "CPU"):
+        #     result = ["AutoETS"]
+        # else:
+        #     result = ["AutoARIMA"]
 
         if result:
             best_model = result[0]
@@ -727,12 +765,12 @@ def forecast_one_week(pod_name, node):
             if(df_forecast.columns.tolist()[2] == 'trend'):
                 #if yes normalize the dataset column names and number
                 rename_dict = {
-                    'yhat': 'forecast',
-                    'yhat_lower': 'forecast-lo-80',
-                    'yhat_upper': 'forecast-hi-80'
+                    'yhat': 'forecastP',
+                    'yhat_lower': 'forecastP-lo-80',
+                    'yhat_upper': 'forecastP-hi-80'
                 }
                 df_forecast = df_forecast.rename(columns=rename_dict)
-                df_forecast = df_forecast[['ds', 'y', 'forecast', 'forecast-lo-80', 'forecast-hi-80']]
+                df_forecast = df_forecast[['ds', 'y', 'forecastP', 'forecastP-lo-80', 'forecastP-hi-80']]
                 print(df_forecast)
             if (metric == "CPU"):
                 cpu_cost_hour = get_cpu_hourly_cost(node)
@@ -751,8 +789,8 @@ def forecast_one_week(pod_name, node):
         else:
             print(f"Error: No matching pod found for {modified_pod_name}")
 
-    cpu_forecast_model = cpu_forecast_columns[2] if cpu_forecast_columns[2] != "forecast" else "Prophet"
-    ram_forecast_model = ram_forecast_columns[2] if ram_forecast_columns[2] != "forecast" else "Prophet"
+    cpu_forecast_model = cpu_forecast_columns[2] if cpu_forecast_columns[2] != "forecastP" else "Prophet"
+    ram_forecast_model = ram_forecast_columns[2] if ram_forecast_columns[2] != "forecastP" else "Prophet"
     models_no_confidence_interval = ['WindowAverage', 'SeasWA']
 
     if (cpu_forecast_model in models_no_confidence_interval and ram_forecast_model in models_no_confidence_interval):
